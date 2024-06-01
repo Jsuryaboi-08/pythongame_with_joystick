@@ -63,3 +63,23 @@ class Ball:
 player_paddle = Paddle(50, SCREEN_HEIGHT // 2 - PADDLE_HEIGHT // 2)
 ai_paddle = Paddle(SCREEN_WIDTH - 50 - PADDLE_WIDTH, SCREEN_HEIGHT // 2 - PADDLE_HEIGHT // 2)
 ball = Ball(SCREEN_WIDTH // 2 - BALL_WIDTH // 2, SCREEN_HEIGHT // 2 - BALL_HEIGHT // 2, 5, 5)            
+
+# Setup serial communication
+ser = serial.Serial('COM3', 115200)  # Replace 'COM3' with your ESP32 serial port
+
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+
+    # Read data from serial
+    try:
+        data = ser.readline().decode('utf-8').strip()
+        xValue, buttonState = map(int, data.split(','))
+        yMove = (xValue - 2048) // 128  # Adjust the divisor to control paddle speed
+    except:
+        yMove = 0
+
+    # Update paddle position
+    player_paddle.move(yMove)
