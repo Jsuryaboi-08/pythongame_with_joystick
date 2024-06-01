@@ -58,3 +58,8 @@ class Ball:
             self.y_vel *= -1
         if self.rect.left < 0 or self.rect.right > SCREEN_WIDTH:
             self.x_vel *= -1
+
+# Initialize paddles and ball
+player_paddle = Paddle(50, SCREEN_HEIGHT // 2 - PADDLE_HEIGHT // 2)
+ai_paddle = Paddle(SCREEN_WIDTH - 50 - PADDLE_WIDTH, SCREEN_HEIGHT // 2 - PADDLE_HEIGHT // 2)
+ball = Ball(SCREEN_WIDTH // 2 - BALL_WIDTH // 2, SCREEN_HEIGHT // 2 - BALL_HEIGHT // 2, 5, 5)            
