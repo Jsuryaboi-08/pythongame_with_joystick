@@ -62,7 +62,7 @@ class Ball:
 # Initialize paddles and ball
 player_paddle = Paddle(50, SCREEN_HEIGHT // 2 - PADDLE_HEIGHT // 2)
 ai_paddle = Paddle(SCREEN_WIDTH - 50 - PADDLE_WIDTH, SCREEN_HEIGHT // 2 - PADDLE_HEIGHT // 2)
-ball = Ball(SCREEN_WIDTH // 2 - BALL_WIDTH // 2, SCREEN_HEIGHT // 2 - BALL_HEIGHT // 2, 5, 5)            
+ball = Ball(SCREEN_WIDTH // 2 - BALL_WIDTH // 2, SCREEN_HEIGHT // 2 - BALL_HEIGHT // 2, 5, 5)
 
 # Setup serial communication
 ser = serial.Serial('COM3', 115200)  # Replace 'COM3' with your ESP32 serial port
@@ -83,3 +83,31 @@ while running:
 
     # Update paddle position
     player_paddle.move(yMove)
+
+    # Simple AI for the second paddle
+    if ai_paddle.rect.centery < ball.rect.centery:
+        ai_paddle.move(5)
+    else:
+        ai_paddle.move(-5)
+
+    # Move ball
+    ball.move()
+
+    # Check for collisions
+    if ball.rect.colliderect(player_paddle.rect) or ball.rect.colliderect(ai_paddle.rect):
+        ball.x_vel *= -1
+
+    # Draw everything
+    screen.fill(BLACK)
+    player_paddle.draw()
+    ai_paddle.draw()
+    ball.draw()
+
+    # Update the display
+    pygame.display.flip()
+
+    # Cap the frame rate
+    clock.tick(60)
+
+ser.close()
+pygame.quit()
