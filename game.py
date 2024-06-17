@@ -1,113 +1,111 @@
 import pygame
 import serial
-import time
 
 # Initialize Pygame
 pygame.init()
 
-# Screen dimensions
-SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 600
+# Set up the game window
+screen_width = 640
+screen_height = 480
+screen = pygame.display.set_mode((screen_width, screen_height))
+
+# Set up the title of the window
+pygame.display.set_caption("Ball Breaker")
+
+# Set up the colors
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 
-# Paddle dimensions
-PADDLE_WIDTH = 15
-PADDLE_HEIGHT = 90
+# Set up the fonts
+font = pygame.font.SysFont(None, 55)
+small_font = pygame.font.SysFont(None, 35)
 
-# Ball dimensions
-BALL_WIDTH = 20
-BALL_HEIGHT = 20
+# Set up the ball
+ball_x = screen_width / 2
+ball_y = screen_height / 2
+ball_speed_x = 5
+ball_speed_y = 5
+ball_radius = 10
 
-# Initialize screen
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption("Ping Pong Game")
+# Set up the disc
+disc_width = 100
+disc_height = 20
+disc_x = screen_width / 2 - disc_width / 2  # Center the disc horizontally
 
-# Initialize clock
+# Set up the serial connection
+ser = serial.Serial('COM9', 9600)  # Replace 'COM9' with your Arduino's serial port
+
+# Create clock outside the game loop
 clock = pygame.time.Clock()
 
-# Paddle class
-class Paddle:
-    def __init__(self, x, y):
-        self.rect = pygame.Rect(x, y, PADDLE_WIDTH, PADDLE_HEIGHT)
+# Set up the points system
+points = 0
+game_over = False
 
-    def draw(self):
-        pygame.draw.rect(screen, WHITE, self.rect)
+def show_text(text, font, color, surface, x, y):
+    textobj = font.render(text, True, color)
+    textrect = textobj.get_rect()
+    textrect.center = (x, y)
+    surface.blit(textobj, textrect)
 
-    def move(self, y):
-        self.rect.y += y
-        if self.rect.top < 0:
-            self.rect.top = 0
-        if self.rect.bottom > SCREEN_HEIGHT:
-            self.rect.bottom = SCREEN_HEIGHT
+def reset_game():
+    global ball_x, ball_y, ball_speed_x, ball_speed_y, points, game_over
+    ball_x = screen_width / 2
+    ball_y = screen_height / 2
+    ball_speed_x = 5
+    ball_speed_y = 5
+    points = 0
+    game_over = False
 
-# Ball class
-class Ball:
-    def __init__(self, x, y, x_vel, y_vel):
-        self.rect = pygame.Rect(x, y, BALL_WIDTH, BALL_HEIGHT)
-        self.x_vel = x_vel
-        self.y_vel = y_vel
-
-    def draw(self):
-        pygame.draw.rect(screen, WHITE, self.rect)
-
-    def move(self):
-        self.rect.x += self.x_vel
-        self.rect.y += self.y_vel
-        if self.rect.top < 0 or self.rect.bottom > SCREEN_HEIGHT:
-            self.y_vel *= -1
-        if self.rect.left < 0 or self.rect.right > SCREEN_WIDTH:
-            self.x_vel *= -1
-
-# Initialize paddles and ball
-player_paddle = Paddle(50, SCREEN_HEIGHT // 2 - PADDLE_HEIGHT // 2)
-ai_paddle = Paddle(SCREEN_WIDTH - 50 - PADDLE_WIDTH, SCREEN_HEIGHT // 2 - PADDLE_HEIGHT // 2)
-ball = Ball(SCREEN_WIDTH // 2 - BALL_WIDTH // 2, SCREEN_HEIGHT // 2 - BALL_HEIGHT // 2, 5, 5)
-
-# Setup serial communication
-ser = serial.Serial('COM3', 115200)  # Replace 'COM3' with your ESP32 serial port
-
-running = True
-while running:
+# Game loop
+while True:
+    # Handle events
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            running = False
+            pygame.quit()
+            quit()
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_r and game_over:
+                reset_game()
 
-    # Read data from serial
-    try:
-        data = ser.readline().decode('utf-8').strip()
-        xValue, buttonState = map(int, data.split(','))
-        yMove = (xValue - 2048) // 128  # Adjust the divisor to control paddle speed
-    except:
-        yMove = 0
+    if not game_over:
+        # Read input from joystick
+        try:
+            y_value = int(ser.readline().decode().strip())
+            # Scale the y_value to fit within the screen height
+            disc_y = screen_height - disc_height - (y_value / 1023.0) * (screen_height - disc_height)
+        except ValueError:
+            continue
 
-    # Update paddle position
-    player_paddle.move(yMove)
+        # Move the ball
+        ball_x += ball_speed_x
+        ball_y += ball_speed_y
 
-    # Simple AI for the second paddle
-    if ai_paddle.rect.centery < ball.rect.centery:
-        ai_paddle.move(5)
-    else:
-        ai_paddle.move(-5)
+        # Bounce the ball off the walls
+        if ball_x <= 0 or ball_x + ball_radius >= screen_width:
+            ball_speed_x = -ball_speed_x
+        if ball_y <= 0:
+            ball_speed_y = -ball_speed_y
+        if ball_y + ball_radius >= screen_height:
+            # Game over
+            game_over = True
 
-    # Move ball
-    ball.move()
-
-    # Check for collisions
-    if ball.rect.colliderect(player_paddle.rect) or ball.rect.colliderect(ai_paddle.rect):
-        ball.x_vel *= -1
+        # Bounce the ball off the disc
+        if ball_y + ball_radius >= disc_y and disc_x <= ball_x <= disc_x + disc_width:
+            ball_speed_y = -ball_speed_y
+            points += 1
 
     # Draw everything
     screen.fill(BLACK)
-    player_paddle.draw()
-    ai_paddle.draw()
-    ball.draw()
+    pygame.draw.circle(screen, WHITE, (int(ball_x), int(ball_y)), ball_radius)
+    pygame.draw.rect(screen, WHITE, (int(disc_x), int(disc_y), disc_width, disc_height))
+    show_text(f'Points: {points}', small_font, WHITE, screen, screen_width / 2, 30)
 
-    # Update the display
+    if game_over:
+        show_text('Game Over!', font, WHITE, screen, screen_width / 2, screen_height / 2)
+        show_text('Press R to Restart', small_font, WHITE, screen, screen_width / 2, screen_height / 2 + 60)
+
     pygame.display.flip()
 
     # Cap the frame rate
     clock.tick(60)
-
-ser.close()
-pygame.quit()
